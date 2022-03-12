@@ -1,6 +1,12 @@
 package com.gtecnologia.testAut.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -18,11 +24,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gtecnologia.testAut.controllers.ProductController;
 import com.gtecnologia.testAut.dto.ProductDTO;
-import com.gtecnologia.testAut.entities.Product;
 import com.gtecnologia.testAut.factory.Factory;
 import com.gtecnologia.testAut.services.ProductService;
+import com.gtecnologia.testAut.services.exceptions.DatabaseException;
 import com.gtecnologia.testAut.services.exceptions.ResourceNotFoundException;
 
 //TESTES || UNITARIO COM MOCKITO - MOCKBEAN || VALIDAR METODOS DA MINHA CONTROLLER:
@@ -36,34 +43,44 @@ public class ProductControllerTest {
 	@MockBean
 	private ProductService service;
 	
-	private long existingId;
-	private long nonExistId;
+	@Autowired
+	private ObjectMapper objectMapper;
 	
-	private Product product;
+	private long existingId;
+	private long nonExistingId;
+	private long dependentId;
+	
 	private ProductDTO productDTO;
 	private PageImpl<ProductDTO> page;
 
-	
-	// FIXTURES
 	@BeforeEach
 	void setUp() throws Exception{
 		
 		existingId = 1L;
-		nonExistId = 2L;
+		nonExistingId = 2L;
+		dependentId = 3L;
 		
-		product = Factory.createProduct();
 		productDTO = Factory.createProductDTO();
 		page = new PageImpl<>(List.of(productDTO));
 		
-		
-		//RETURN => quando(when)--ação(thenReturn)
+		//RETURN => quando(when)-----------------------------------ação(thenReturn)
 		Mockito.when(service.findALLPaged(ArgumentMatchers.any())).thenReturn(page);
-		Mockito.when(service.findById(existingId)).thenReturn(productDTO);
-		Mockito.when(service.findById(nonExistId)).thenThrow(ResourceNotFoundException.class);
+		when(service.findById(existingId)).thenReturn(productDTO);
+		when(service.findById(nonExistingId)).thenThrow(ResourceNotFoundException.class);
+		
+		when(service.insert(any())).thenReturn(productDTO);
+		when(service.update(eq(existingId), any())).thenReturn(productDTO);
+		when(service.update(eq(nonExistingId), any())).thenThrow(ResourceNotFoundException.class);
+		
+		//VOID => ação --- quando
+		Mockito.doNothing().when(service).delete(existingId);
+		Mockito.doThrow(ResourceNotFoundException.class).when(service).delete(nonExistingId);
+		Mockito.doThrow(DatabaseException.class).when(service).delete(dependentId);
 		
 	}
 	
-	//---TESTE PARA VALIDAR BUSCAS:
+	
+	//---TESTES PARA VALIDAR BUSCAS:
 	@Test
 	public void findAllShouldReturnPage()throws Exception{
 		
@@ -72,7 +89,7 @@ public class ProductControllerTest {
 		
 		result.andExpect(status().isOk());
 	}
-	
+
 	@Test 
 	public void findByIdShouldReturnProductDTOWhenIdExists() throws Exception {
 		ResultActions result = mockMvc.perform(get("/products/{id}", existingId)
@@ -86,14 +103,90 @@ public class ProductControllerTest {
 
 	}
 	
-	@Test
+	@Test 
 	public void findByIdShouldReturnNotFoundWhenIdDoesNotExists() throws Exception {
+		ResultActions result = mockMvc.perform(get("/products/{id}", nonExistingId)
+				.accept(MediaType.APPLICATION_JSON));
 		
-		ResultActions result = mockMvc.perform(get("/products/{id}", nonExistId)
+			result.andExpect(status().isNotFound());
+	}
+	
+	
+	//---TESTES PARA VALIDAR INSERÇÕES E ATUALIZAÇÕES:
+	
+	@Test 
+	public void insertShouldReturnStatusCreatedAndProductDTO() throws Exception{
+		String jsonBody = objectMapper.writeValueAsString(productDTO);
+		
+		ResultActions result = mockMvc.perform(post("/products/")
+				.content(jsonBody)
+				.contentType(MediaType.APPLICATION_JSON)
+				.accept(MediaType.APPLICATION_JSON));
+		
+		result.andExpect(status().isCreated());
+		result.andExpect(jsonPath("$.id").exists());
+		result.andExpect(jsonPath("$.name").exists());
+		result.andExpect(jsonPath("$.description").exists());
+		result.andExpect(jsonPath("$.price").exists());
+		result.andExpect(jsonPath("$.imgUrl").exists());
+		result.andExpect(jsonPath("$.date").exists());
+	}
+	
+	@Test
+	public void updateShouldReturnProductDTOWhenIdExists() throws Exception{
+		String jsonBody = objectMapper.writeValueAsString(productDTO);
+		
+		ResultActions result = mockMvc.perform(put("/products/{id}", existingId)
+				.content(jsonBody)
+				.contentType(MediaType.APPLICATION_JSON)
+				.accept(MediaType.APPLICATION_JSON));
+
+		result.andExpect(status().isOk());
+		result.andExpect(jsonPath("$.id").exists());
+		result.andExpect(jsonPath("$.name").exists());
+		result.andExpect(jsonPath("$.description").exists());
+		result.andExpect(jsonPath("$.price").exists());
+	}
+	
+	@Test
+	public void updateShouldNotFoundWhenIdDoesNotExists() throws Exception{
+		String jsonBody = objectMapper.writeValueAsString(productDTO);
+		
+		ResultActions result = mockMvc.perform(put("/products/{id}", nonExistingId)
+				.content(jsonBody)
+				.contentType(MediaType.APPLICATION_JSON)
+				.accept(MediaType.APPLICATION_JSON));
+		
+		result.andExpect(status().isNotFound());
+	}
+
+	
+	//---TESTES PARA VALIDAR DELEÇÕES:
+	
+	@Test
+	public void deleteShouldReturnNoContentwhenIdExist ()throws Exception {
+		ResultActions result = mockMvc.perform(delete("/products/{id}", existingId)
+				.accept(MediaType.APPLICATION_JSON));
+
+		result.andExpect(status().isNoContent());
+	}
+	
+	@Test
+	public void deleteShouldReturnNotFounWhenDoesIdNoExist() throws Exception {
+		ResultActions result = mockMvc.perform(delete("/products{id}", nonExistingId)
 				.accept(MediaType.APPLICATION_JSON));
 		
 		result.andExpect(status().isNotFound());
 	}
 	
+	@Test
+	public void deleteShouldReturnBadRequestWhenDependentId() throws Exception{
+		
+		ResultActions result = mockMvc.perform(delete("/products/{id}", dependentId)
+				.accept(MediaType.APPLICATION_JSON));
+		
+		result.andExpect(status().isBadRequest());
+		
+	}
 
 }
