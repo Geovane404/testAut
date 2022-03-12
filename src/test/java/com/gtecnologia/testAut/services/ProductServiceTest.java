@@ -47,7 +47,7 @@ public class ProductServiceTest {
 	@Mock
 	private CategoryRepository categoryRepository;
 
-	// FIXTURES
+	
 	private long exintingId;
 	private long dependentID;
 	private long nonExintingId;
@@ -57,6 +57,7 @@ public class ProductServiceTest {
 	private Category category;
 	private PageImpl<Product> page;
 
+	// FIXTURES
 	@BeforeEach
 	void setUp() throws Exception {
 		exintingId = 1L;
