@@ -11,6 +11,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gtecnologia.testAut.dto.ProductDTO;
+import com.gtecnologia.testAut.factory.Factory;
 import com.gtecnologia.testAut.repositories.ProductRepository;
 import com.gtecnologia.testAut.services.exceptions.ResourceNotFoundException;
 
@@ -29,6 +30,8 @@ public class ProductServiceIT {
 	private long existingId;
 	private long nonExistingId;
 	private long countTotalProduct;
+	
+	private ProductDTO productDTO;
 
 	// FIXTURES
 	@BeforeEach
@@ -37,7 +40,8 @@ public class ProductServiceIT {
 		existingId = 1L;
 		nonExistingId = 1000L;
 		countTotalProduct = 25L;
-
+		
+		productDTO = Factory.createProductDTO();
 	}
 
 	// ---TESTES PARA VALIDAR BUSCAS:
@@ -94,6 +98,36 @@ public class ProductServiceIT {
 		});
 		
 	}
+	
+	
+	// ---TESTES PARA VALIDAR INSERÇÕES E ATUALIZAÇÕES:
+	@Test
+	public void insertShouldReturnProductDTO() {
+		
+		ProductDTO dto = service.insert(productDTO);
+		
+		Assertions.assertNotNull(dto);
+		Assertions.assertEquals(productDTO.getName(), dto.getName());
+	}	
+	
+	@Test
+	public void updateShoulReturnProductDTOWhenIdExist () {
+		
+		ProductDTO dto = service.update(existingId, productDTO);
+		
+		Assertions.assertNotNull(dto);
+		Assertions.assertEquals(productDTO.getId(), dto.getId());
+		Assertions.assertEquals(productDTO.getName(), dto.getName());
+	}	
+	
+	@Test
+	public void updateShouldThrowResourceNotFoundExceptionWhenIdNoExis() {
+		
+		Assertions.assertThrows(ResourceNotFoundException.class, () -> {
+			service.update(nonExistingId, productDTO);
+		});
+	}	
+	
 	
 	// ---TESTES PARA VALIDAR DELEÇÕES:
 	@Test
