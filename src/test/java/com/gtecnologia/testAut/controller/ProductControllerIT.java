@@ -1,5 +1,6 @@
 package com.gtecnologia.testAut.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -30,12 +31,12 @@ public class ProductControllerIT {
 	@Autowired
 	private MockMvc mockMvc;
 
-	private long  existingId;
+	private long existingId;
 	private long nonExistingId;
 	private long countTotalProduct;
-	
+
 	private ProductDTO productDTO;
-	
+
 	@Autowired
 	private ObjectMapper objectMapper;
 
@@ -43,24 +44,24 @@ public class ProductControllerIT {
 	@BeforeEach
 	void setUp() throws Exception {
 
-		 existingId = 1L;
-		 nonExistingId = 1000L;
+		existingId = 1L;
+		nonExistingId = 1000L;
 		countTotalProduct = 25L;
-		
+
 		productDTO = Factory.createProductDTO();
 	}
 
 	// ---TESTES PARA VALIDAR BUSCAS:
 	@Test
-	public void findAllShouldReturnPage() throws Exception{
-		
+	public void findAllShouldReturnPage() throws Exception {
+
 		ResultActions result = mockMvc.perform(get("/products")
 				.accept(MediaType.APPLICATION_JSON));
-				
+
 		result.andExpect(status().isOk());
 		result.andExpect(jsonPath("$.content").exists());
 	}
-	
+
 	@Test
 	public void findAllShouldReturnSortedPageWhenSortByName() throws Exception {
 
@@ -75,40 +76,40 @@ public class ProductControllerIT {
 		result.andExpect(jsonPath("$.content[1].name").value("PC Gamer"));
 		result.andExpect(jsonPath("$.content[2].name").value("PC Gamer Alfa"));
 	}
-	
-	@Test 
+
+	@Test
 	public void findByIdShouldReturnProductDTOWhenIdExists() throws Exception {
-		
+
 		ResultActions result = mockMvc.perform(get("/products/{id}", existingId)
 				.accept(MediaType.APPLICATION_JSON));
-		
+
 		result.andExpect(status().isOk());
 		result.andExpect(jsonPath("$.id").exists());
 		result.andExpect(jsonPath("$.name").exists());
 		result.andExpect(jsonPath("$.description").exists());
 		result.andExpect(jsonPath("$.price").exists());
 	}
-	
-	@Test 
+
+	@Test
 	public void findByIdShouldReturnNotFoundWhenIdDoesNotExists() throws Exception {
-		
+
 		ResultActions result = mockMvc.perform(get("/products/{id}", nonExistingId)
 				.accept(MediaType.APPLICATION_JSON));
-		
-			result.andExpect(status().isNotFound());
+
+		result.andExpect(status().isNotFound());
 	}
-	
-	
-	//---TESTES PARA VALIDAR INSERÇÕES E ATUALIZAÇÕES:
-	@Test 
-	public void insertShouldReturnStatusCreatedAndProductDTO() throws Exception{
-		String jsonBody = objectMapper.writeValueAsString(productDTO);
+
+	// ---TESTES PARA VALIDAR INSERÇÕES E ATUALIZAÇÕES:
+	@Test
+	public void insertShouldReturnStatusCreatedAndProductDTO() throws Exception {
 		
+		String jsonBody = objectMapper.writeValueAsString(productDTO);
+
 		ResultActions result = mockMvc.perform(post("/products/")
 				.content(jsonBody)
 				.contentType(MediaType.APPLICATION_JSON)
 				.accept(MediaType.APPLICATION_JSON));
-		
+
 		result.andExpect(status().isCreated());
 		result.andExpect(jsonPath("$.id").exists());
 		result.andExpect(jsonPath("$.name").exists());
@@ -117,11 +118,12 @@ public class ProductControllerIT {
 		result.andExpect(jsonPath("$.imgUrl").exists());
 		result.andExpect(jsonPath("$.date").exists());
 	}
-	
+
 	@Test
-	public void updateShouldReturnProductDTOWhenIdExists() throws Exception{
-		String jsonBody = objectMapper.writeValueAsString(productDTO);
+	public void updateShouldReturnProductDTOWhenIdExists() throws Exception {
 		
+		String jsonBody = objectMapper.writeValueAsString(productDTO);
+
 		ResultActions result = mockMvc.perform(put("/products/{id}", existingId)
 				.content(jsonBody)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -133,16 +135,37 @@ public class ProductControllerIT {
 		result.andExpect(jsonPath("$.description").exists());
 		result.andExpect(jsonPath("$.price").exists());
 	}
-	
+
 	@Test
-	public void updateShouldNotFoundWhenIdDoesNotExists() throws Exception{
-		String jsonBody = objectMapper.writeValueAsString(productDTO);
+	public void updateShouldNotFoundWhenIdDoesNotExists() throws Exception {
 		
+		String jsonBody = objectMapper.writeValueAsString(productDTO);
+
 		ResultActions result = mockMvc.perform(put("/products/{id}", nonExistingId)
 				.content(jsonBody)
 				.contentType(MediaType.APPLICATION_JSON)
 				.accept(MediaType.APPLICATION_JSON));
+
+		result.andExpect(status().isNotFound());
+	}
+
+	// ---TESTES PARA VALIDAR DELEÇÕES:
+
+	@Test
+	public void deleteShouldReturnNoContentwhenIdExist() throws Exception {
 		
+		ResultActions result = mockMvc.perform(delete("/products/{id}", existingId)
+				.accept(MediaType.APPLICATION_JSON));
+
+		result.andExpect(status().isNoContent());
+	}
+
+	@Test
+	public void deleteShouldReturnNotFounWhenDoesIdNoExist() throws Exception {
+		
+		ResultActions result = mockMvc.perform(delete("/products{id}", nonExistingId)
+				.accept(MediaType.APPLICATION_JSON));
+
 		result.andExpect(status().isNotFound());
 	}
 
